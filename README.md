@@ -22,7 +22,6 @@ Este projeto é uma solução completa para análise de dados de vendas, geraç�
 
 ```bash
 AutomacaoVendas/
-├── data/               # Armazena as planilhas de entrada e saída
 ├── src/
 │   ├── gerar_dados.py  # Script para criar massa de dados fictícia
 │   ├── analise_vendas.py # Script de processamento ETL
