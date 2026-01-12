@@ -3,3 +3,23 @@ Time: 20:55
 Phone Number: +5521968233122
 Message: Relatório do dia fechado. Total geral de vendas: R$ 9475.
 --------------------
+Date: 11/1/2026
+Time: 19:12
+Phone Number: +5521999999999
+Message: Olá Carlos Eduardo, vi seu interesse no [Venda] Casa Condomínio. Podemos agendar uma visita?
+--------------------
+Date: 11/1/2026
+Time: 19:12
+Phone Number: +5521999999999
+Message: Olá Carlos Eduardo, vi seu interesse no [Venda] Casa Condomínio. Podemos agendar uma visita?
+--------------------
+Date: 11/1/2026
+Time: 19:22
+Phone Number: +5521999999999
+Message: Olá Ana Clara, vi seu interesse no [Aluguel] Studio Barra. Podemos agendar uma visita?
+--------------------
+Date: 12/1/2026
+Time: 18:33
+Phone Number: +5521999999999
+Message: Olá Cleonice_Dangelo, vi seu interesse no Campanha Janeiro. Podemos agendar uma visita?
+--------------------

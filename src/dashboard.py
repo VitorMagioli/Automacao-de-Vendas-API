@@ -5,85 +5,134 @@ import pywhatkit
 import time
 import keyboard
 
+
+# --- FUNÇÃO TRADUTORA (A MÁGICA ACONTECE AQUI) ---
+def carregar_dados(arquivo):
+    # Verifica a extensão do arquivo para usar o leitor correto
+    if arquivo.name.endswith('.csv'):
+        try:
+            # Tenta ler como CSV padrão (UTF-8)
+            df = pd.read_csv(arquivo)
+        except:
+            # Se falhar, tenta ler como padrão do Excel/Facebook (UTF-16)
+            arquivo.seek(0)
+            df = pd.read_csv(arquivo, sep='\t', encoding='utf-16')
+    else:
+        # Assume que é Excel (.xlsx)
+        # Requer: pip install openpyxl
+        df = pd.read_excel(arquivo)
+
+    return df
+
+def normalizar_tabela(df):
+    # O Tradutor: Renomeia as colunas do Facebook para o nosso padrão
+    # Mapa: 'Nome no Facebook': 'Nome no Nosso Sistema'
+    mapa_colunas = {
+        'full_name': 'Cliente',
+        'phone_number': 'Telefone',
+        'campaign_name': 'Imóvel de Interesse',
+        'created_time': 'Data'
+    }
+
+    # Renomeia se encontrar as colunas
+    df = df.rename(columns=mapa_colunas)
+
+    # 3. Tratamento de Dados Extras
+    # Se não tiver coluna "Status" (o Facebook não tem), criamos como "Novo"
+    if 'Status' not in df.columns:
+        df['Status'] = 'Novo Lead'
+
+    # Se não tiver "Valor", colocamos "Sob Consulta" ou 0
+    if 'Valor Potencial' not in df.columns:
+        df['Valor Potencial'] = 0.0
+
+    # Limpeza básica de data (pegar só o dia YYYY-MM-DD)
+    if 'Data' in df.columns:
+        df['Data'] = pd.to_datetime(df['Data']).dt.date
+
+    return df
+
+
 # --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="Automação de Vendas", layout="wide")
+st.set_page_config(page_title="Gestor Imobiliário PRO", layout="wide")
+st.title("🏠 Gestão de Leads - Integração Facebook Ads")
 
-st.title("🚀 Sistema de Gestão de Vendas & Automação")
-st.write("Faça upload da sua planilha, analise os dados e envie relatórios via WhatsApp.")
+# --- BARRA LATERAL ---
+st.sidebar.header("Configuração")
+numero_destino = st.sidebar.text_input("Seu WhatsApp para Teste:", value="+5521999999999")
 
-# --- BARRA LATERAL (CONFIGURAÇÕES DE ENVIO) ---
-st.sidebar.header("🤖 Configuração do Robô")
-
-# 1. Campo para digitar o número (Pedido do Cliente)
-numero_destino = st.sidebar.text_input("Número para envio (com DDD: ",value="+5521999999999")
-
-# 2. Seletor de Mensagens (Pedido do Cliente)
-tipo_mensagem = st.sidebar.selectbox(
-    "Escolha o Modelo de Mensagem:",
-    [
-        "Padrão (Campeão de Vendas)",
-        "Motivacional (Meta Batida)",
-        "Cobrança (Relatório Geral)"
-    ]
-)
-
-# --- PASSO 1: UPLOAD DO ARQUIVO ---
-arquivo_upload = st.file_uploader("Arraste sua planilha de vendas aqui (.xlsx)", type="xlsx")
+# --- UPLOAD ---
+st.info("Suporta arquivos Excel (.xlsx) ou Exportação do Facebook (.csv)")
+arquivo_upload = st.file_uploader("Arraste o arquivo aqui", type=["xlsx", "csv"])
 
 if arquivo_upload is not None:
-    # Ler o arquivo que o usuário enviou
-    df = pd.read_excel(arquivo_upload)
+    try:
+        # 1. Carregar e Normalizar
+        df_bruto = carregar_dados(arquivo_upload)
+        df = normalizar_tabela(df_bruto)
 
-    # --- PASSO 2: DASHBOARD (GRÁFICOS) ---
-    st.divider() #linha divisória
-    st.subheader("📊 Análise de Performance")
+        # Mostra os dados
+        with st.expander("Ver Tabela de Dados"):
+            st.dataframe(df)
 
-    # Lógica de Agrupamento
-    relatorio = df.groupby('Vendedor')['Valor'].sum().reset_index()
-    relatorio = relatorio.sort_values(by='Valor', ascending=False)
+        # --- MÉTRICAS ---
+        st.divider()
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total de Leads", len(df))
+        # Verifica se a coluna existe antes de calcular a moda
+        campanha_top = df['Imóvel de Interesse'].mode()[0] if 'Imóvel de Interesse' in df.columns else "N/A"
+        col2.metric("Campanha Principal", campanha_top)
 
-    # Identificar o campeão
-    campeao = relatorio.iloc[0]['Vendedor']
-    total_campeao = relatorio.iloc[0]['Valor']
+        # Conta novos leads hoje
+        hoje = pd.to_datetime('today').date()
+        novos_hoje = len(df[df['Data'] == hoje]) if 'Data' in df.columns else 0
+        col3.metric("Novos Hoje", novos_hoje)
 
-    # Mostrar métricas lado a lado (Colunas)
-    col1, col2 = st.columns(2)
-    col1.metric("Melhor Vendedor", campeao)
-    col1.metric("Total Vendido (Top 1)", f"R$ {total_campeao:,.2f}")
+        # --- GRÁFICOS ---
+        # Gráfico 1: Leads por Campanha (Imóvel)
+        if 'Imóvel de Interesse' in df.columns:
+            contagem = df['Imóvel de Interesse'].value_counts().reset_index()
+            contagem.columns = ['Imóvel', 'Quantidade']
+            fig = px.bar(contagem, x='Imóvel', y='Quantidade', color='Imóvel')
+            st.plotly_chart(fig, use_container_width=True)
 
-    # Gráfico de Barras Bonitão com Plotly
-    grafico = px.bar(relatorio, x='Vendedor', y='Valor', title='Vendas por Vendedor', color='Vendedor')
-    st.plotly_chart(grafico, use_container_width=True)
+        # --- AUTOMAÇÃO (FIFO: FIRST IN, FIRST OUT) ---
+        st.divider()
+        st.subheader("📲 Fila de Atendimento")
 
-    # --- PASSO 3: AUTOMAÇÃO (BOTÃO MÁGICO) ---
-    st.divider()
-    st.subheader("📲 Enviar Relatório")
+        # Filtra apenas Novos
+        novos_leads = df[df['Status'] == 'Novo Lead']
 
-    # Lógica para definir o texto da mensagem com base na escolha do usuário
-    mensagem_final = ""
-    if tipo_mensagem == "Padrão (Campeão de Vendas)":
-        mensagem_final = f"Olá! O destaque de hoje foi {campeao} com R$ {total_campeao} em vendas."
-    elif tipo_mensagem == "Motivacional (Meta Batida)":
-        mensagem_final = f"Parabéns equipe! Hoje batemos a meta. O destaque foi {campeao}."
-    elif tipo_mensagem == "Cobrança (Relatório Geral)":
-        mensagem_final = f"Relatório do dia fechado. Total geral de vendas: R$ {relatorio['Valor'].sum()}."
+        if not novos_leads.empty:
+            # --- ORDENAÇÃO FIFO (O PULO DO GATO) ---
+            # Ordena por Data Crescente (Antigo -> Novo)
+            if 'Data' in novos_leads.columns:
+                novos_leads = novos_leads.sort_values(by='Data', ascending=True)
 
-    st.info(f"Mensagem que será enviada: {mensagem_final}")
+            # Pega o primeiro da fila (agora garantido ser o mais antigo)
+            lead_atual = novos_leads.iloc[0]
 
-    # O Botão que faz a mágica
-    if st.button("Enviar via WhatsApp"):
-        if numero_destino:
-            st.warning("Abrindo o Whatsapp Web... Por favor, não mexa no mouse.")
+            nome = lead_atual.get('Cliente', 'Lead sem Nome')
+            imovel = lead_atual.get('Imóvel de Interesse', 'Imóvel')
 
-            # Automação do PyWhatKit
-            try:
-                pywhatkit.sendwhatmsg_instantly(numero_destino, mensagem_final, wait_time=20)
-                time.sleep(2)
-                keyboard.press_and_release('enter')
-                st.success("Enviado com sucesso!")
+            st.info(f"**Próximo da Fila (Mais Antigo):** {nome}")
+            st.write(f"Interesse: {imovel} | Data: {lead_atual.get('Data', '-')}")
 
-            except Exception as e:
-                st.error(f"Erro ao enviar via WhatsApp: {e}")
+            msg_padrao = f"Olá {nome}, vi seu interesse no {imovel}. Podemos agendar uma visita?"
+            mensagem = st.text_area("Mensagem:", value=msg_padrao)
 
+            if st.button("Enviar WhatsApp"):
+                st.warning("Abrindo WhatsApp...")
+                try:
+                    pywhatkit.sendwhatmsg_instantly(numero_destino, mensagem, wait_time=20)
+                    time.sleep(2)
+                    keyboard.press_and_release('enter')
+                    st.success("Enviado!")
+                except Exception as e:
+                    st.error(f"Erro: {e}")
         else:
-            st.error("Por favor, digite um número de telefone na barra lateral.")
+            st.success("🎉 Fila zerada! Todos os leads foram atendidos.")
+
+    except Exception as e:
+        st.error(f"Erro ao processar arquivo: {e}")
+        st.warning("Dica: Se enviou um Excel, verifique se instalou o openpyxl: pip install openpyxl")

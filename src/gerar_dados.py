@@ -1,20 +1,40 @@
 import pandas as pd
-import os
+import random
+from datetime import datetime, timedelta
 
-dados = {
-    'Vendedor': ['Ana', 'Carlos', 'Ana', 'Beto', 'Carlos', 'Ana', 'Beto', 'Ana'],
-    'Produto': ['Notebook', 'Mouse', 'Monitor', 'Teclado', 'Notebook', 'Mouse', 'Monitor', 'Cabo HDMI'],
-    'Valor': [3500, 50, 1200, 150, 3400, 45, 1100, 30],
-    'Data': ['2023-01-01', '2023-01-02', '2023-01-01', '2023-01-03', '2023-01-02', '2023-01-04', '2023-01-03', '2023-01-01']
-}
+print("Gerando simulação de arquivo exportado do Facebook Ads...")
+
+# --- ESTRUTURA PADRÃO DO FACEBOOK (META ADS) ---
+# O Facebook geralmente entrega CSV com essas colunas em inglês
+colunas_fb = ['id', 'created_time', 'full_name', 'phone_number', 'email', 'campaign_name', 'platform']
+
+nomes = ['Ana Clara', 'Bruno Diniz', 'Carlos Eduardo', 'Daniela Lima', 'Eduardo Costa']
+campanhas = ['[Compra] Ap Centro', '[Venda] Casa Condomínio', '[Aluguel] Studio Barra', '[Lançamento] Torre Norte']
+
+dados = []
+
+for i in range(50):
+    dias_atras = random.randint(0, 7)
+    data = datetime.now() - timedelta(days=dias_atras)
+
+    #Formato de data do Facebook (ISO 8601)
+    data_str = data.strftime("%Y-%m-%dT%H:%M:%S+0000")
+
+    item = {
+        'id': f"lead_{1000+i}",
+        'created_time': data_str,
+        'full_name': random.choice(nomes),
+        'phone_number': f"+55219{random.randint(10000000, 99999999)}",
+        'email': "email@teste.com",
+        'campaign_name': random.choice(campanhas),
+        'platform': 'ig' #instagram
+    }
+    dados.append(item)
 
 df = pd.DataFrame(dados)
+# O Facebook exporta em CSV, não em Excel
+arquivo_saida = '../data/leads_facebook_export.csv'
+df.to_csv(arquivo_saida, index=False)
 
-caminho_pasta = '../data' # O '..' significa "volte uma pasta", pois estamos dentro de 'src'
-
-if not os.path.exists(caminho_pasta):
-    os.makedirs(caminho_pasta)
-
-df.to_excel(f'{caminho_pasta}/vendas_brutas.xlsx', index=False)
-
-print("Sucesso! O arquivo 'vendas_brutas.xlsx' foi criado na pasta 'data'.")
+print(f"Sucesso! Arquivo 'cru' do Facebook gerado em: {arquivo_saida}")
+print(df.head())
